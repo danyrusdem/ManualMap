@@ -236,6 +236,7 @@ DWORD __stdcall stub()
 
 int main()
 {
+	//Ebat kostil ya hueu 
 	NtReadVirtualMemory = (TNtReadVirtualMemory)GetProcAddress(GetModuleHandle(XorStr("ntdll.dll")), (XorStr("NtReadVirtualMemory")));
 	NtWriteVirtualMemory = (TNtWriteVirtualMemory)GetProcAddress(GetModuleHandle(XorStr("ntdll.dll")), (XorStr("NtWriteVirtualMemory")));
 	AntiDebugg3();

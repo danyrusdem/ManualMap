@@ -3,7 +3,10 @@
 #include <TlHelp32.h>
 #include <random>
 #include <time.h>
-
+#include <Shlwapi.h>
+#include "Header.h"
+#include "Security.h"
+#include "Xor.h"
 
 using namespace std;
 
@@ -14,18 +17,9 @@ typedef INT(__stdcall* dllmain)(HMODULE, DWORD, LPVOID);
 
 //ShowWindow(GetConsoleWindow(), SW_HIDE)
 
+TNtReadVirtualMemory NtReadVirtualMemory;
+TNtWriteVirtualMemory NtWriteVirtualMemory;
 
-DWORD GetFuncSize(DWORD* Function, DWORD* StubFunction)
-{
-	DWORD dwFunctionSize = 0, dwOldProtect;
-	DWORD* fnA = NULL, * fnB = NULL;
-
-	fnA = (DWORD*)Function;
-	fnB = (DWORD*)StubFunction;
-	dwFunctionSize = (fnB - fnA);
-	VirtualProtect(fnA, dwFunctionSize, PAGE_EXECUTE_READWRITE, &dwOldProtect); // Need to modify our privileges to the memory
-	return dwFunctionSize;
-}
 
 struct loaderdata
 {
@@ -39,6 +33,7 @@ struct loaderdata
 	pGetProcAddress fnGetProcAddress;
 
 };
+/*
 class Color
 {
 public:
@@ -64,6 +59,7 @@ private:
 	6 = gold
 	7 = white
 	*/
+/*
 };
 void printlogo()
 {
@@ -82,6 +78,7 @@ V3
         )";
 	cout << "\n";
 }
+*/
 /*
 void openpornhub()
 {
@@ -107,7 +104,7 @@ void HideConsole()
 {
 	::ShowWindow(::GetConsoleWindow(), SW_HIDE);
 }
-
+/*
 void currenttime()
 {
 	time_t curr_time;
@@ -116,18 +113,8 @@ void currenttime()
 
 	cout << Color(7) << "\n[" << tm_local->tm_hour << ":" << tm_local->tm_min << ":" << tm_local->tm_sec << "] ";
 }
+*/
 
-DWORD GetFuncSize(DWORD* Function)
-{
-	DWORD dwFunctionSize = 0, dwOldProtect;
-	DWORD* fnA = NULL, * fnB = NULL;
-
-	fnA = (DWORD*)Function;
-	//fnB = (DWORD*)StubFunction;
-	dwFunctionSize = (fnB - fnA);
-	VirtualProtect(fnA, dwFunctionSize, PAGE_EXECUTE_READWRITE, &dwOldProtect); // Need to modify our privileges to the memory
-	return dwFunctionSize;
-}
 
 DWORD FindProcessId(string processName)
 {
@@ -249,14 +236,18 @@ DWORD __stdcall stub()
 
 int main()
 {
+	NtReadVirtualMemory = (TNtReadVirtualMemory)GetProcAddress(GetModuleHandle(XorStr("ntdll.dll")), (XorStr("NtReadVirtualMemory")));
+	NtWriteVirtualMemory = (TNtWriteVirtualMemory)GetProcAddress(GetModuleHandle(XorStr("ntdll.dll")), (XorStr("NtWriteVirtualMemory")));
+	AntiDebugg3();
+	NtGlobals();
 	HideConsole();
 	randomizetitle();
-	printlogo();
-	currenttime();
+	//printlogo();
+	//currenttime();
 //	openpornhub();
 	char dll[MAX_PATH] = { 0 };
-	GetFullPathName("circuspro.dll", MAX_PATH, dll, NULL);
-	DWORD ProcessId = FindProcessId("csgo.exe");
+	GetFullPathName(XorStr("circuspro.dll"), MAX_PATH, dll, NULL);
+	DWORD ProcessId = FindProcessId(XorStr("csgo.exe"));
 	
 	loaderdata LoaderParams;
 
@@ -281,7 +272,7 @@ int main()
 		MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 
 	// Copy the headers to target process
-	WriteProcessMemory(hProcess, ExecutableImage, FileBuffer,
+	NtWriteVirtualMemory(hProcess, ExecutableImage, FileBuffer,
 		pNtHeaders->OptionalHeader.SizeOfHeaders, NULL);
 
 	// Target Dll's Section Header
@@ -289,7 +280,7 @@ int main()
 	// Copying sections of the dll to the target process
 	for (int i = 0; i < pNtHeaders->FileHeader.NumberOfSections; i++)
 	{
-		WriteProcessMemory(hProcess, (PVOID)((LPBYTE)ExecutableImage + pSectHeader[i].VirtualAddress),
+		NtWriteVirtualMemory(hProcess, (PVOID)((LPBYTE)ExecutableImage + pSectHeader[i].VirtualAddress),
 			(PVOID)((LPBYTE)FileBuffer + pSectHeader[i].PointerToRawData), pSectHeader[i].SizeOfRawData, NULL);
 	}
 
@@ -309,10 +300,10 @@ int main()
 	LoaderParams.fnGetProcAddress = GetProcAddress;
 
 	// Write the loader information to target process
-	WriteProcessMemory(hProcess, LoaderMemory, &LoaderParams, sizeof(loaderdata),
+	NtWriteVirtualMemory(hProcess, LoaderMemory, &LoaderParams, sizeof(loaderdata),
 		NULL);
 	// Write the loader code to target process
-	WriteProcessMemory(hProcess, (PVOID)((loaderdata*)LoaderMemory + 1), LibraryLoader,
+	NtWriteVirtualMemory(hProcess, (PVOID)((loaderdata*)LoaderMemory + 1), LibraryLoader,
 		(DWORD)stub - (DWORD)LibraryLoader, NULL);
 	// Create a remote thread to execute the loader code
 	HANDLE hThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)((loaderdata*)LoaderMemory + 1),
@@ -331,3 +322,5 @@ int main()
 	//return 0;
 	ExitProcess(0);
 }
+
+
